@@ -3,7 +3,6 @@ import { Client, Events, GatewayIntentBits } from "discord.js";
 
 import dotenv from "dotenv";
 import botRoutes from "./routes/bot.routes";
-import { getVoiceConnection } from "@discordjs/voice";
 import DiscordClient from "./services/client.service";
 dotenv.config();
 
