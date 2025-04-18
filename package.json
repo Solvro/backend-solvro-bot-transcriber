@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "node -r tsconfig-paths/register dist/index.js",
     "build": "tsc",
-    "serve": "ts-node src/index.ts"
+    "serve": "ts-node -r tsconfig-paths/register src/index.ts"
   },
   "author": "",
   "license": "ISC",
@@ -15,6 +15,7 @@
     "@types/node": "^22.14.1",
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.3"
   },
   "dependencies": {
