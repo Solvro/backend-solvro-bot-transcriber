@@ -4,6 +4,8 @@ import { mkdirSync, existsSync, createWriteStream } from 'fs';
 import { join } from 'path';
 import { PassThrough } from 'stream';
 import { Decoder } from '@evan/opus';
+import ffmpeg from 'fluent-ffmpeg';
+import { readdirSync, unlinkSync, statSync, writeFileSync } from 'fs';
 
 const AUDIO_SETTINGS: {
     channels: 1 | 2,
@@ -108,4 +110,73 @@ export const recordAudio = async (connection: VoiceConnection, recordingsDir: st
             streams.delete(userId);
         }
     });
+};
+
+export const mergePcmToMp3 = async (recordingsDir: string, outputFile: string) => {
+    const pcmFiles = readdirSync(recordingsDir)
+        .filter(file => file.endsWith('.pcm'))
+        .map(file => {
+            const [timestamp, userId] = file.split('_');
+            const filepath = join(recordingsDir, file);
+            const fileStats = statSync(filepath);
+            const duration = fileStats.size / (48000 * 2); // in seconds
+
+            return {
+                filepath,
+                timestamp: parseInt(timestamp, 10),
+                userId,
+                duration,
+            };
+        })
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+    if (pcmFiles.length === 0)
+        throw new Error('No PCM files found to merge.');
+
+    const jsonFilePath = join(recordingsDir, 'meeting_metadata.json');
+    writeFileSync(jsonFilePath, JSON.stringify(pcmFiles, null, 2));
+
+    const startTime = pcmFiles[0].timestamp;
+    const wavFiles: string[] = [];
+
+    for (const { filepath, timestamp } of pcmFiles) {
+        const wavFile = filepath.replace('.pcm', '.wav');
+        const delay = (timestamp - startTime) / 1000;
+
+        await new Promise((resolve, reject) => {
+            ffmpeg(filepath)
+                .inputOptions(['-f s16le', '-ar 48000', '-ac 1'])
+                .outputOptions([
+                    '-ar 48000',
+                    '-ac 1',
+                    `-af adelay=${delay * 1000}|${delay * 1000}`,
+                ])
+                .save(wavFile)
+                .on('end', () => {
+                    wavFiles.push(wavFile);
+                    resolve(null);
+                })
+                .on('error', reject);
+        });
+    }
+
+    const outputPath = join(recordingsDir, outputFile);
+
+    await new Promise((resolve, reject) => {
+        const ffmpegCommand = ffmpeg();
+        wavFiles.forEach(wavFile => ffmpegCommand.input(wavFile));
+        ffmpegCommand
+            .complexFilter([
+                {
+                    filter: 'amix',
+                    options: { inputs: wavFiles.length, duration: 'longest' },
+                },
+            ])
+            .output(outputPath)
+            .on('end', resolve)
+            .on('error', reject)
+            .run();
+    });
+
+    wavFiles.forEach(wavFile => unlinkSync(wavFile));
 };
