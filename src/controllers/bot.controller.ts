@@ -6,10 +6,13 @@ import {
 } from "@services/voice.service";
 
 export const start = async (req: Request, res: Response) => {
-    // TODO: channelId prom req body
+    const channelId = req.body?.channelId;
+    // if (!channelId)
+    //     return res.status(400).json({ error: "channelId is required" });
+
     const connection = await connectToVoiceChannel(
         process.env.GUILD_ID ?? "",
-        "1362149031618281485"
+        channelId ?? "1362149031618281485"
     );
 
     recordAudio(connection, process.env.RECORDINGS_PATH ?? "../../recordings");
