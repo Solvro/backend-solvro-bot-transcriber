@@ -12,13 +12,11 @@ const AUDIO_SETTINGS: {
     rate: sample_rate,
     frameSize: number,
     bitrate: string,
-    mixInterval: number,
 } = {
     channels: 1,
     rate: 48000,
     frameSize: 960,
     bitrate: '64k',
-    mixInterval: 20,
 };
 
 export const connectToVoiceChannel = async (
@@ -119,7 +117,7 @@ export const mergePcmToMp3 = async (recordingsDir: string, outputFile: string) =
             const [timestamp, userId] = file.split('_');
             const filepath = join(recordingsDir, file);
             const fileStats = statSync(filepath);
-            const duration = fileStats.size / (48000 * 2); // in seconds
+            const duration = fileStats.size / (AUDIO_SETTINGS.rate * 2); // in seconds
 
             return {
                 filepath,
@@ -141,15 +139,19 @@ export const mergePcmToMp3 = async (recordingsDir: string, outputFile: string) =
 
     for (const { filepath, timestamp } of pcmFiles) {
         const wavFile = filepath.replace('.pcm', '.wav');
-        const delay = (timestamp - startTime) / 1000;
+        const delay = timestamp - startTime;
 
         await new Promise((resolve, reject) => {
             ffmpeg(filepath)
-                .inputOptions(['-f s16le', '-ar 48000', '-ac 1'])
+                .inputOptions([
+                    '-f s16le',
+                    `-ar ${AUDIO_SETTINGS.rate}`,
+                    `-ac ${AUDIO_SETTINGS.channels}`
+                ])
                 .outputOptions([
-                    '-ar 48000',
-                    '-ac 1',
-                    `-af adelay=${delay * 1000}|${delay * 1000}`,
+                    `-ar ${AUDIO_SETTINGS.rate}`,
+                    `-ac ${AUDIO_SETTINGS.channels}`,
+                    `-af adelay=${delay}|${delay}`,
                 ])
                 .save(wavFile)
                 .on('end', () => {
