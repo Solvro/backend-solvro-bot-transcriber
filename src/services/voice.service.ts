@@ -114,14 +114,14 @@ export const mergePcmToMp3 = async (recordingsDir: string, outputFile: string) =
     const pcmFiles = readdirSync(recordingsDir)
         .filter(file => file.endsWith('.pcm'))
         .map(file => {
-            const [timestamp, userId] = file.split('_');
+            const [timestamp, userId] = file.slice(0, -4).split('_');
             const filepath = join(recordingsDir, file);
             const fileStats = statSync(filepath);
             const duration = fileStats.size / (AUDIO_SETTINGS.rate * 2); // in seconds
 
             return {
                 filepath,
-                timestamp: parseInt(timestamp, 10),
+                timestamp: parseInt(timestamp),
                 userId,
                 duration,
             };

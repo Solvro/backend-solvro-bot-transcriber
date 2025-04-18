@@ -24,12 +24,13 @@ export const start = async (req: Request, res: Response) => {
 };
 
 export const stop = async (req: Request, res: Response) => {
-    await mergePcmToMp3(
+    await disconnectFromVoice(process.env.GUILD_ID ?? "");
+
+    // execute this async (for now)
+    mergePcmToMp3(
         process.env.RECORDINGS_PATH ?? "../../recordings",
         "output.mp3"
     );
-    
-    await disconnectFromVoice(process.env.GUILD_ID ?? "");
 
     res.json({ message: "ok" });
 };
