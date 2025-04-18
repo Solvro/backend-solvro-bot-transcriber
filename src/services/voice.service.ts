@@ -1,5 +1,5 @@
 import { EndBehaviorType, getVoiceConnection, joinVoiceChannel, VoiceConnection } from "@discordjs/voice";
-import DiscordClient from "./client.service";
+import DiscordClient from "@services/client.service";
 import { mkdirSync, existsSync, createWriteStream } from 'fs';
 import { join } from 'path';
 import { PassThrough } from 'stream';

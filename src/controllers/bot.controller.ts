@@ -3,7 +3,7 @@ import {
     connectToVoiceChannel,
     disconnectFromVoice,
     recordAudio,
-} from "../services/voice.service";
+} from "@services/voice.service";
 
 export const start = async (req: Request, res: Response) => {
     // TODO: channelId prom req body

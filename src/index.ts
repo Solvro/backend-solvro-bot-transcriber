@@ -1,9 +1,8 @@
 import express, { Request, Response } from "express";
-import { Client, Events, GatewayIntentBits } from "discord.js";
 
 import dotenv from "dotenv";
-import botRoutes from "./routes/bot.routes";
-import DiscordClient from "./services/client.service";
+import botRoutes from "@routes/bot.routes";
+import DiscordClient from "@services/client.service";
 dotenv.config();
 
 const app = express();

@@ -6,7 +6,15 @@
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true
+        "forceConsistentCasingInFileNames": true,
+        "baseUrl": "./src",
+        "paths": {
+            "@controllers/*": ["./controllers/*"],
+            "@services/*": ["./services/*"],
+            "@utils/*": ["./utils/*"],
+            "@config/*": ["./config/*"],
+            "@routes/*": ["./routes/*"]
+        },
     },
     "include": ["src/**/*.ts"],
     "exclude": ["node_modules"]
