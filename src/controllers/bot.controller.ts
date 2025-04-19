@@ -41,6 +41,8 @@ export const stop = async (req: Request, res: Response) => {
         storage.get("current_meeting")
     );
 
+    storage.remove("current_meeting");
+
     // execute this async (for now)
     mergePcmToMp3(
         recordingPath,
