@@ -45,12 +45,11 @@ export const disconnectFromVoice = async (guildId: string) => {
 };
 
 
-export const recordAudio = async (connection: VoiceConnection, recordingsDir: string) => {
+export const recordAudio = async (connection: VoiceConnection, meetingDir: string) => {
     const receiver = connection.receiver;
 
-    if (!existsSync(recordingsDir)) {
-        mkdirSync(recordingsDir, { recursive: true });
-    }
+    if (!existsSync(meetingDir))
+        mkdirSync(meetingDir, { recursive: true });
 
     const streams = new Map<string, {
         audioStream: any;
@@ -64,7 +63,7 @@ export const recordAudio = async (connection: VoiceConnection, recordingsDir: st
 
         const timestamp = Date.now();
         const filename = `${timestamp}_${userId}.pcm`;
-        const filepath = join(recordingsDir, filename);
+        const filepath = join(meetingDir, filename);
 
         const audioStream = receiver.subscribe(userId, {
             end: {
@@ -110,12 +109,12 @@ export const recordAudio = async (connection: VoiceConnection, recordingsDir: st
     });
 };
 
-export const mergePcmToMp3 = async (recordingsDir: string, outputFile: string) => {
-    const pcmFiles = readdirSync(recordingsDir)
+export const mergePcmToMp3 = async (meetingDir: string, outputFile: string) => {
+    const pcmFiles = readdirSync(meetingDir)
         .filter(file => file.endsWith('.pcm'))
         .map(file => {
             const [timestamp, userId] = file.slice(0, -4).split('_');
-            const filepath = join(recordingsDir, file);
+            const filepath = join(meetingDir, file);
             const fileStats = statSync(filepath);
             const duration = fileStats.size / (AUDIO_SETTINGS.rate * 2); // in seconds
 
@@ -131,7 +130,7 @@ export const mergePcmToMp3 = async (recordingsDir: string, outputFile: string) =
     if (pcmFiles.length === 0)
         throw new Error('No PCM files found to merge.');
 
-    const jsonFilePath = join(recordingsDir, 'meeting_metadata.json');
+    const jsonFilePath = join(meetingDir, 'meeting_metadata.json');
     writeFileSync(jsonFilePath, JSON.stringify(pcmFiles, null, 2));
 
     const startTime = pcmFiles[0].timestamp;
@@ -162,7 +161,7 @@ export const mergePcmToMp3 = async (recordingsDir: string, outputFile: string) =
         });
     }
 
-    const outputPath = join(recordingsDir, outputFile);
+    const outputPath = join(meetingDir, outputFile);
 
     await new Promise((resolve, reject) => {
         const ffmpegCommand = ffmpeg();
