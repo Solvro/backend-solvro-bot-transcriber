@@ -6,6 +6,7 @@ import { PassThrough } from 'stream';
 import { Decoder } from '@evan/opus';
 import ffmpeg from 'fluent-ffmpeg';
 import { readdirSync, unlinkSync, statSync, writeFileSync } from 'fs';
+import { storage } from "@utils/storage";
 
 const AUDIO_SETTINGS: {
     channels: 1 | 2,
@@ -109,7 +110,7 @@ export const recordAudio = async (connection: VoiceConnection, meetingDir: strin
     });
 };
 
-export const mergePcmToMp3 = async (meetingDir: string, outputFile: string) => {
+export const mergePcmToMp3 = async (meetingDir: string) => {
     const pcmFiles = readdirSync(meetingDir)
         .filter(file => file.endsWith('.pcm'))
         .map(file => {
@@ -129,9 +130,6 @@ export const mergePcmToMp3 = async (meetingDir: string, outputFile: string) => {
 
     if (pcmFiles.length === 0)
         throw new Error('No PCM files found to merge.');
-
-    const jsonFilePath = join(meetingDir, 'meeting_metadata.json');
-    writeFileSync(jsonFilePath, JSON.stringify(pcmFiles, null, 2));
 
     const startTime = pcmFiles[0].timestamp;
     const wavFiles: string[] = [];
@@ -161,7 +159,7 @@ export const mergePcmToMp3 = async (meetingDir: string, outputFile: string) => {
         });
     }
 
-    const outputPath = join(meetingDir, outputFile);
+    const outputPath = join(meetingDir, "merged.mp3");
 
     await new Promise((resolve, reject) => {
         const ffmpegCommand = ffmpeg();
@@ -180,4 +178,33 @@ export const mergePcmToMp3 = async (meetingDir: string, outputFile: string) => {
     });
 
     wavFiles.forEach(wavFile => unlinkSync(wavFile));
+
+    return pcmFiles;
 };
+
+export const processRecording = async (meetingDir: string) => {
+    storage.save(`${storage.get("current_meeting_name")}_processing`, true);
+
+    const metadata = await mergePcmToMp3(meetingDir);
+
+    // TODO: remove silence from mp3 to optimize transcripction process
+    // const inPath = join(meetingDir, "merged.mp3");
+    // const ouPath = join(meetingDir, "merged_silenceless.mp3");
+    // await removeSilenceFromMp3(inPath, ouPath);
+
+    // TODO: transcribe using whisper?
+
+    const transcription: string = "transcription";
+
+    const result = {
+        meetingName: storage.get("current_meeting_name"),
+        transcription,
+        metadata,
+    };
+
+    const resultPath = join(meetingDir, "result.json");
+    writeFileSync(resultPath, JSON.stringify(result, null, 2));
+
+    storage.remove("processing");
+    storage.remove("current_meeting_name");
+}
