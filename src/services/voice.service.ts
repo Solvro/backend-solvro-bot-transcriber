@@ -49,7 +49,7 @@ export const recordAudio = async (connection: VoiceConnection, recordingsDir: st
     const receiver = connection.receiver;
 
     if (!existsSync(recordingsDir)) {
-        mkdirSync(recordingsDir);
+        mkdirSync(recordingsDir, { recursive: true });
     }
 
     const streams = new Map<string, {
