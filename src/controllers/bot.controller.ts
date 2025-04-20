@@ -3,20 +3,25 @@ import {
     connectToVoiceChannel,
     disconnectFromVoice,
     recordAudio,
-    mergePcmToMp3
+    processRecording
 } from "@services/voice.service";
 import { join } from "path";
 import { storage } from "@utils/storage";
+import { existsSync, readFileSync } from "fs";
 
 export const start = async (req: Request, res: Response) => {
     const channelId = req.body?.channelId;
-    // if (!channelId)
-    //     return res.status(400).json({ error: "channelId is required" });
+    // if (!channelId) {
+    //     res.status(400).json({ error: "channelId is required" });
+    //     return;
+    // }
 
     const meetingName: string = req.body?.meetingName;
     // if (!meetingName)
-    //     return res.status(400).json({ error: "meetingName is required" });
-    storage.save("current_meeting", meetingName);
+    //     res.status(400).json({ error: "meetingName is required" });
+    //     return;
+    // }
+    storage.save("current_meeting_name", meetingName);
 
     const connection = await connectToVoiceChannel(
         process.env.GUILD_ID ?? "",
@@ -38,16 +43,38 @@ export const stop = async (req: Request, res: Response) => {
 
     const recordingPath = join(
         process.env.RECORDINGS_PATH ?? "../../recordings",
-        storage.get("current_meeting")
+        storage.get("current_meeting_name")
     );
 
-    storage.remove("current_meeting");
-
-    // execute this async (for now)
-    mergePcmToMp3(
-        recordingPath,
-        "output.mp3"
-    );
+    processRecording(recordingPath);
 
     res.json({ message: "ok" });
 };
+
+export const getMeeting = async (req: Request, res: Response) => {
+    const meetingName = req.params.meetingName;
+
+    if (!meetingName) {
+        res.status(400).json({ error: "meetingName is required" });
+        return;
+    }
+    
+    if (storage.get(`${meetingName}_processing`)) {
+        res.status(202).json({ message: "processing" });
+        return;
+    }
+
+    const resultPath = join(
+        process.env.RECORDINGS_PATH ?? "../../recordings",
+        meetingName,
+        "result.json"
+    );
+
+    if (!existsSync(resultPath)) {
+        res.status(404).json({ error: "result not found" });
+        return;
+    }
+
+    const result = JSON.parse(readFileSync(resultPath, "utf-8"));
+    res.json(result);
+}
