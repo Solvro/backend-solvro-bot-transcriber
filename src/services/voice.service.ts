@@ -210,6 +210,6 @@ export const processRecording = async (meetingDir: string) => {
     const resultPath = join(meetingDir, "result.json");
     writeFileSync(resultPath, JSON.stringify(result, null, 2));
 
-    storage.remove("processing");
+    storage.remove(`${storage.get("current_meeting_name")}_processing`);
     storage.remove("current_meeting_name");
 }
