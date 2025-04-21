@@ -121,63 +121,73 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
 
             return {
                 filepath,
-                timestamp: parseInt(timestamp),
                 userId,
+                globalTimestamp: parseInt(timestamp),
+                recordingTimestamp: 0,
                 duration,
             };
         })
-        .sort((a, b) => a.timestamp - b.timestamp);
+        .sort((a, b) => a.globalTimestamp - b.globalTimestamp);
 
     if (pcmFiles.length === 0)
         throw new Error('No PCM files found to merge.');
 
-    const startTime = pcmFiles[0].timestamp;
-    const wavFiles: string[] = [];
+    const startTime = pcmFiles[0].globalTimestamp;
 
-    for (const { filepath, timestamp } of pcmFiles) {
-        const wavFile = filepath.replace('.pcm', '.wav');
-        const delay = timestamp - startTime;
+    let currentEndTime = startTime + (pcmFiles[0].duration * 1000);
+    const adjustedDelays: number[] = [0];
+    const SILENCE_GAP = 1000;
 
-        await new Promise((resolve, reject) => {
-            ffmpeg(filepath)
-                .inputOptions([
-                    '-f s16le',
-                    `-ar ${AUDIO_SETTINGS.rate}`,
-                    `-ac ${AUDIO_SETTINGS.channels}`
-                ])
-                .outputOptions([
-                    `-ar ${AUDIO_SETTINGS.rate}`,
-                    `-ac ${AUDIO_SETTINGS.channels}`,
-                    `-af adelay=${delay}|${delay}`,
-                ])
-                .save(wavFile)
-                .on('end', () => {
-                    wavFiles.push(wavFile);
-                    resolve(null);
-                })
-                .on('error', reject);
-        });
+    for (let i = 1; i < pcmFiles.length; i++) {
+        const track = pcmFiles[i];
+        const trackDurationMs = track.duration * 1000;
+        const gapMs = track.globalTimestamp - currentEndTime;
+
+        let adjustedStart = track.globalTimestamp;
+        if (gapMs > 0) 
+            adjustedStart = currentEndTime + SILENCE_GAP;
+
+        adjustedDelays.push(adjustedStart - startTime);
+        pcmFiles[i].recordingTimestamp = (adjustedStart - startTime) / 1000;
+        currentEndTime = Math.max(currentEndTime, adjustedStart + trackDurationMs);
     }
 
     const outputPath = join(meetingDir, "merged.mp3");
 
     await new Promise((resolve, reject) => {
         const ffmpegCommand = ffmpeg();
-        wavFiles.forEach(wavFile => ffmpegCommand.input(wavFile));
+
+        pcmFiles.forEach((pcm, index) => {
+            ffmpegCommand.input(pcm.filepath)
+                .inputOptions([
+                    '-f s16le',
+                    `-ar ${AUDIO_SETTINGS.rate}`,
+                    `-ac ${AUDIO_SETTINGS.channels}`
+                ]);
+        });
+
+        const delayFilters = pcmFiles.map((_, index) =>
+            `[${index}:a]adelay=${adjustedDelays[index]}|${adjustedDelays[index]}[a${index}]`
+        );
+
+        const amixFilter = `${pcmFiles.map((_, i) => `[a${i}]`).join('')}` +
+            `amix=inputs=${pcmFiles.length}:duration=longest[out]`;
+
         ffmpegCommand
-            .complexFilter([
-                {
-                    filter: 'amix',
-                    options: { inputs: wavFiles.length, duration: 'longest' },
-                },
+            .complexFilter([...delayFilters, amixFilter])
+            .outputOptions([
+                '-map [out]',
+                '-c:a libmp3lame',
+                '-q:a 2'
             ])
             .output(outputPath)
             .on('end', resolve)
-            .on('error', reject)
+            .on('error', (err) => {
+                console.error('FFmpeg error:', err);
+                reject(err);
+            })
             .run();
     });
-
-    wavFiles.forEach(wavFile => unlinkSync(wavFile));
 
     return pcmFiles;
 };
@@ -186,11 +196,6 @@ export const processRecording = async (meetingDir: string) => {
     storage.save(`${storage.get("current_meeting_name")}_processing`, true);
 
     const metadata = await mergePcmToMp3(meetingDir);
-
-    // TODO: remove silence from mp3 to optimize transcripction process
-    // const inPath = join(meetingDir, "merged.mp3");
-    // const ouPath = join(meetingDir, "merged_silenceless.mp3");
-    // await removeSilenceFromMp3(inPath, ouPath);
 
     // TODO: transcribe using whisper?
 
@@ -205,6 +210,6 @@ export const processRecording = async (meetingDir: string) => {
     const resultPath = join(meetingDir, "result.json");
     writeFileSync(resultPath, JSON.stringify(result, null, 2));
 
-    storage.remove(`${storage.get("current_meeting_name")}_processing`);
+    storage.remove("processing");
     storage.remove("current_meeting_name");
 }
