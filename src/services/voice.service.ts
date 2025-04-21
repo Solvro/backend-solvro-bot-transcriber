@@ -196,11 +196,12 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
 export const processRecording = async (meetingDir: string) => {
     await mergePcmToMp3(meetingDir);
 
-    // TODO: transcribe using whisper?
+    // TODO: transcribe using whisper for now, later use selfhosted model
     const transcription: string = "transcription"; 
 
-    const response = await fetch(`${process.env.CORE_URL}/???`, {
-        method: "POST",
+    const response = await fetch(
+        `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}`, {
+        method: "PATCH",
         body: JSON.stringify({
             name: storage.get("current_meeting_name") as string,
             transcription,
@@ -212,4 +213,5 @@ export const processRecording = async (meetingDir: string) => {
     });
     
     storage.remove("current_meeting_name");
+    storage.remove("current_meeting_id");
 }

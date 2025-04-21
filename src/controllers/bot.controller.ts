@@ -16,11 +16,18 @@ export const start = async (req: Request, res: Response) => {
     // }
 
     const meetingName: string = req.body?.meetingName;
-    // if (!meetingName)
+    // if (!meetingName) {
     //     res.status(400).json({ error: "meetingName is required" });
     //     return;
     // }
     storage.save("current_meeting_name", meetingName);
+
+    const meetingId = req.body?.meetingId;
+    // if (!meetingId) {
+    //     res.status(400).json({ error: "meetingId is required" });
+    //     return;
+    // }
+    storage.save("current_meeting_id", meetingId);
 
     const connection = await connectToVoiceChannel(
         process.env.GUILD_ID ?? "",
