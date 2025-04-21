@@ -7,7 +7,7 @@
     "start": "node dist/index.js",
     "build": "tsc && tsc-alias",
     "serve": "ts-node -r tsconfig-paths/register src/index.ts",
-    "dev": "nodemon -r tsconfig-paths/register src/index.ts"
+    "dev": "nodemon --watch src -r tsconfig-paths/register src/index.ts"
   },
   "author": "",
   "license": "ISC",
