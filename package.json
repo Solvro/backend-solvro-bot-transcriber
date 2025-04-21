@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node -r tsconfig-paths/register dist/index.js",
-    "build": "tsc",
+    "start": "node dist/index.js",
+    "build": "tsc && tsc-alias",
     "serve": "ts-node -r tsconfig-paths/register src/index.ts",
     "dev": "nodemon -r tsconfig-paths/register src/index.ts"
   },
@@ -14,6 +14,7 @@
   "devDependencies": {
     "@types/express": "^5.0.1",
     "@types/fluent-ffmpeg": "^2.1.27",
+    "tsc-alias": "1.8.15",
     "@types/node": "^22.14.1",
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
