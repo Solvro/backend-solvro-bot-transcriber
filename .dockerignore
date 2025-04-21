@@ -1,0 +1,12 @@
+.vscode
+.env*
+.editorconfig
+.dockerignore
+.git
+.gitignore
+Dockerfile*
+LICENSE
+README.md
+node_modules
+pnpm-lock.yaml
+dist
