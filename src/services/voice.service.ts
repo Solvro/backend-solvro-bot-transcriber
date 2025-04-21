@@ -152,9 +152,12 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
         currentEndTime = Math.max(currentEndTime, adjustedStart + trackDurationMs);
     }
 
+    const metadataPath = join(meetingDir, "metadata.json");
+    writeFileSync(metadataPath, JSON.stringify(pcmFiles, null, 2));
+
     const outputPath = join(meetingDir, "merged.mp3");
 
-    await new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
         const ffmpegCommand = ffmpeg();
 
         pcmFiles.forEach((pcm, index) => {
@@ -188,28 +191,25 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
             })
             .run();
     });
-
-    return pcmFiles;
 };
 
 export const processRecording = async (meetingDir: string) => {
-    storage.save(`${storage.get("current_meeting_name")}_processing`, true);
-
-    const metadata = await mergePcmToMp3(meetingDir);
+    await mergePcmToMp3(meetingDir);
 
     // TODO: transcribe using whisper?
+    const transcription: string = "transcription"; 
 
-    const transcription: string = "transcription";
-
-    const result = {
-        meetingName: storage.get("current_meeting_name"),
-        transcription,
-        metadata,
-    };
-
-    const resultPath = join(meetingDir, "result.json");
-    writeFileSync(resultPath, JSON.stringify(result, null, 2));
-
-    storage.remove(`${storage.get("current_meeting_name")}_processing`);
+    const response = await fetch(`${process.env.CORE_URL}/???`, {
+        method: "POST",
+        body: JSON.stringify({
+            name: storage.get("current_meeting_name") as string,
+            transcription,
+            endTimestamp: Date.now()
+        }),
+        headers: {
+            "Content-Type": "application/json",
+        },
+    });
+    
     storage.remove("current_meeting_name");
 }
