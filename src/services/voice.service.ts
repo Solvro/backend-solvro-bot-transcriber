@@ -9,7 +9,6 @@ import { readdirSync, readFileSync, statSync, writeFileSync, createReadStream } 
 import { storage } from "@utils/storage";
 import OpenAI from "openai";
 import { logger } from "@utils/logger";
-import { log } from "console";
 
 const AUDIO_SETTINGS: {
     channels: 1 | 2,
