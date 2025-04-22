@@ -5,8 +5,9 @@ import { join } from 'path';
 import { PassThrough } from 'stream';
 import { Decoder } from '@evan/opus';
 import ffmpeg from 'fluent-ffmpeg';
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
+import { readdirSync, readFileSync, statSync, writeFileSync, createReadStream } from 'fs';
 import { storage } from "@utils/storage";
+import OpenAI from "openai";
 
 const AUDIO_SETTINGS: {
     channels: 1 | 2,
@@ -194,11 +195,29 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
     });
 };
 
+export const transcribeAudio = async (meetingDir: string) => {
+    const openai = new OpenAI({
+        apiKey: process.env.OPENAI_KEY,
+        organization: process.env.OPENAI_ORG,
+        project: process.env.OPENAI_PROJ,
+    });
+
+    // TODO: split merged.mp3 into 25MB chunks
+    const transcription = await openai.audio.transcriptions.create({
+        file: createReadStream(
+            join(meetingDir, "merged.mp3")
+        ),
+        model: "whisper-1",
+        language: "pl",
+    });
+
+    return transcription.text;
+}
+
 export const processRecording = async (meetingDir: string) => {
     await mergePcmToMp3(meetingDir);
 
-    // TODO: transcribe using whisper for now, later use selfhosted model
-    const transcription: string = "transcription";
+    const transcription = await transcribeAudio(meetingDir);
 
     const metadataPath = join(meetingDir, "metadata.json");
     const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
