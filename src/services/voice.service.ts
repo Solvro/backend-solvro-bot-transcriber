@@ -219,6 +219,9 @@ export const processRecording = async (meetingDir: string) => {
 
     const transcription = await transcribeAudio(meetingDir);
 
+    const transcriptionPath = join(meetingDir, "transcription.txt");
+    writeFileSync(transcriptionPath, transcription);
+
     const metadataPath = join(meetingDir, "metadata.json");
     const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
 
