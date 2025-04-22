@@ -117,7 +117,9 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
             const [timestamp, userId] = file.slice(0, -4).split('_');
             const filepath = join(meetingDir, file);
             const fileStats = statSync(filepath);
-            const duration = fileStats.size / (AUDIO_SETTINGS.rate * 2); // in seconds
+            const duration = Math.round(
+                1000 * fileStats.size / (AUDIO_SETTINGS.rate * 2)
+            ); // in ms
 
             return {
                 filepath,
@@ -134,13 +136,12 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
 
     const startTime = pcmFiles[0].globalTimestamp;
 
-    let currentEndTime = startTime + (pcmFiles[0].duration * 1000);
+    let currentEndTime = startTime + pcmFiles[0].duration;
     const adjustedDelays: number[] = [0];
     const SILENCE_GAP = 1000;
 
     for (let i = 1; i < pcmFiles.length; i++) {
         const track = pcmFiles[i];
-        const trackDurationMs = track.duration * 1000;
         const gapMs = track.globalTimestamp - currentEndTime;
 
         let adjustedStart = track.globalTimestamp;
@@ -148,8 +149,8 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
             adjustedStart = currentEndTime + SILENCE_GAP;
 
         adjustedDelays.push(adjustedStart - startTime);
-        pcmFiles[i].recordingTimestamp = (adjustedStart - startTime) / 1000;
-        currentEndTime = Math.max(currentEndTime, adjustedStart + trackDurationMs);
+        pcmFiles[i].recordingTimestamp = adjustedStart - startTime;
+        currentEndTime = Math.max(currentEndTime, adjustedStart + track.duration);
     }
 
     const metadataPath = join(meetingDir, "metadata.json");
