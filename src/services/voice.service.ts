@@ -5,7 +5,7 @@ import { join } from 'path';
 import { PassThrough } from 'stream';
 import { Decoder } from '@evan/opus';
 import ffmpeg from 'fluent-ffmpeg';
-import { readdirSync, unlinkSync, statSync, writeFileSync } from 'fs';
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { storage } from "@utils/storage";
 
 const AUDIO_SETTINGS: {
@@ -197,21 +197,22 @@ export const processRecording = async (meetingDir: string) => {
     await mergePcmToMp3(meetingDir);
 
     // TODO: transcribe using whisper for now, later use selfhosted model
-    const transcription: string = "transcription"; 
+    const transcription: string = "transcription";
+
+    const metadataPath = join(meetingDir, "metadata.json");
+    const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
 
     const response = await fetch(
         `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}`, {
         method: "PATCH",
         body: JSON.stringify({
-            name: storage.get("current_meeting_name") as string,
             transcription,
-            endTimestamp: Date.now()
+            metadata,
         }),
         headers: {
             "Content-Type": "application/json",
         },
     });
     
-    storage.remove("current_meeting_name");
     storage.remove("current_meeting_id");
 }

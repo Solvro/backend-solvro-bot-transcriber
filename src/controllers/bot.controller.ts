@@ -15,18 +15,11 @@ export const start = async (req: Request, res: Response) => {
     //     return;
     // }
 
-    const meetingName: string = req.body?.meetingName;
-    // if (!meetingName) {
-    //     res.status(400).json({ error: "meetingName is required" });
-    //     return;
-    // }
-    storage.save("current_meeting_name", meetingName);
-
-    const meetingId = req.body?.meetingId;
-    // if (!meetingId) {
-    //     res.status(400).json({ error: "meetingId is required" });
-    //     return;
-    // }
+    const meetingId = req.body?.meetingId as string;
+    if (!meetingId) {
+        res.status(400).json({ error: "meetingId is required" });
+        return;
+    }
     storage.save("current_meeting_id", meetingId);
 
     const connection = await connectToVoiceChannel(
@@ -36,7 +29,7 @@ export const start = async (req: Request, res: Response) => {
 
     const recordingPath = join(
         process.env.RECORDINGS_PATH ?? "../../recordings",
-        meetingName
+        meetingId
     );
 
     recordAudio(connection, recordingPath);
@@ -49,7 +42,7 @@ export const stop = async (req: Request, res: Response) => {
 
     const recordingPath = join(
         process.env.RECORDINGS_PATH ?? "../../recordings",
-        storage.get("current_meeting_name")
+        storage.get("current_meeting_id") as string
     );
 
     processRecording(recordingPath);
