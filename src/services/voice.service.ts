@@ -8,6 +8,8 @@ import ffmpeg from 'fluent-ffmpeg';
 import { readdirSync, readFileSync, statSync, writeFileSync, createReadStream } from 'fs';
 import { storage } from "@utils/storage";
 import OpenAI from "openai";
+import { logger } from "@utils/logger";
+import { log } from "console";
 
 const AUDIO_SETTINGS: {
     channels: 1 | 2,
@@ -59,6 +61,8 @@ export const recordAudio = async (connection: VoiceConnection, meetingDir: strin
         fileStream: ReturnType<typeof createWriteStream>;
         decoder: Decoder;
     }>();
+
+    logger.info("Recording started");
 
     receiver.speaking.on('start', (userId: string) => {
         if (streams.has(userId)) return;
@@ -112,6 +116,8 @@ export const recordAudio = async (connection: VoiceConnection, meetingDir: strin
 };
 
 export const mergePcmToMp3 = async (meetingDir: string) => {
+    logger.info("Loading PCM files for merging");
+
     const pcmFiles = readdirSync(meetingDir)
         .filter(file => file.endsWith('.pcm'))
         .map(file => {
@@ -141,6 +147,8 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
     const adjustedDelays: number[] = [0];
     const SILENCE_GAP = 1000;
 
+    logger.info("Adjusting PCM delays for merging");
+
     for (let i = 1; i < pcmFiles.length; i++) {
         const track = pcmFiles[i];
         const gapMs = track.globalTimestamp - currentEndTime;
@@ -158,6 +166,8 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
     writeFileSync(metadataPath, JSON.stringify(pcmFiles, null, 2));
 
     const outputPath = join(meetingDir, "merged.mp3");
+
+    logger.info("Merging PCM files to MP3");
 
     return await new Promise((resolve, reject) => {
         const ffmpegCommand = ffmpeg();
@@ -202,6 +212,8 @@ export const transcribeAudio = async (meetingDir: string) => {
         project: process.env.OPENAI_PROJ,
     });
 
+    logger.info("Transcription started");
+
     // TODO: split merged.mp3 into 25MB chunks
     const transcription = await openai.audio.transcriptions.create({
         file: createReadStream(
@@ -210,6 +222,8 @@ export const transcribeAudio = async (meetingDir: string) => {
         model: "whisper-1",
         language: "pl",
     });
+
+    logger.info("Transcription finished");
 
     return transcription.text;
 }
