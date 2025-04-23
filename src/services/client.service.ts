@@ -1,3 +1,4 @@
+import { logger } from "@utils/logger";
 import { Client, GatewayIntentBits, Events } from "discord.js";
 import dotenv from "dotenv";
 dotenv.config();
@@ -7,7 +8,7 @@ const DiscordClient = new Client({
 });
 
 DiscordClient.once(Events.ClientReady, (readyClient) => {
-    console.log(`Ready! Logged in as ${readyClient.user.tag}`);
+    logger.info(`Discord bot is ready! Logged in as ${readyClient.user.tag}`);
 });
 
 DiscordClient.login(process.env.TOKEN);

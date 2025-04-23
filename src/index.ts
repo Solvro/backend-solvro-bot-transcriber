@@ -3,6 +3,7 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import botRoutes from "@routes/bot.routes";
 import DiscordClient from "@services/client.service";
+import { logger } from "@utils/logger";
 dotenv.config();
 
 const app = express();
@@ -20,5 +21,5 @@ DiscordClient;
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+    logger.info(`Server running at http://localhost:${port}`);
 });

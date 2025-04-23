@@ -153,7 +153,7 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
         const gapMs = track.globalTimestamp - currentEndTime;
 
         let adjustedStart = track.globalTimestamp;
-        if (gapMs > 0) 
+        if (gapMs > 0)
             adjustedStart = currentEndTime + SILENCE_GAP;
 
         adjustedDelays.push(adjustedStart - startTime);
@@ -197,7 +197,7 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
             .output(outputPath)
             .on('end', resolve)
             .on('error', (err) => {
-                console.error('FFmpeg error:', err);
+                logger.error(`FFmpeg error: ${err}`);
                 reject(err);
             })
             .run();
@@ -230,7 +230,13 @@ export const transcribeAudio = async (meetingDir: string) => {
 export const processRecording = async (meetingDir: string) => {
     await mergePcmToMp3(meetingDir);
 
-    const transcription = await transcribeAudio(meetingDir);
+    let transcription;
+    if (process.env.OPENAI_KEY == undefined) {
+        transcription = "Missing OpenAI key";
+        logger.warn("Missing OpenAI key, skipping transcription");
+    } else {
+        transcription = await transcribeAudio(meetingDir);
+    }
 
     const transcriptionPath = join(meetingDir, "transcription.txt");
     writeFileSync(transcriptionPath, transcription);
@@ -249,6 +255,6 @@ export const processRecording = async (meetingDir: string) => {
             "Content-Type": "application/json",
         },
     });
-    
+
     storage.remove("current_meeting_id");
 }
