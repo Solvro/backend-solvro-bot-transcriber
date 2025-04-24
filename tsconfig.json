@@ -13,8 +13,9 @@
             "@services/*": ["./services/*"],
             "@utils/*": ["./utils/*"],
             "@config/*": ["./config/*"],
-            "@routes/*": ["./routes/*"]
-        },
+            "@routes/*": ["./routes/*"],
+            "types/*": ["./types/*"]
+        }
     },
     "include": ["src/**/*.ts"],
     "exclude": ["node_modules"]

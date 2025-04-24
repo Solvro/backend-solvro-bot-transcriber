@@ -9,13 +9,9 @@ import { readdirSync, readFileSync, statSync, writeFileSync, createReadStream } 
 import { storage } from "@utils/storage";
 import OpenAI from "openai";
 import { logger } from "@utils/logger";
+import { AudioSettings, UserStreams } from "types/voice";
 
-const AUDIO_SETTINGS: {
-    channels: 1 | 2,
-    rate: sample_rate,
-    frameSize: number,
-    bitrate: string,
-} = {
+const AUDIO_SETTINGS: AudioSettings = {
     channels: 1,
     rate: 48000,
     frameSize: 960,
@@ -54,12 +50,7 @@ export const recordAudio = async (connection: VoiceConnection, meetingDir: strin
     if (!existsSync(meetingDir))
         mkdirSync(meetingDir, { recursive: true });
 
-    const streams = new Map<string, {
-        audioStream: any;
-        pcmStream: PassThrough;
-        fileStream: ReturnType<typeof createWriteStream>;
-        decoder: Decoder;
-    }>();
+    const streams = new Map<string, UserStreams>();
 
     logger.info("Recording started");
 
@@ -99,7 +90,6 @@ export const recordAudio = async (connection: VoiceConnection, meetingDir: strin
             audioStream,
             pcmStream,
             fileStream,
-            decoder,
         });
     });
 

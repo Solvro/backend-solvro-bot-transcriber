@@ -1,7 +1,4 @@
-interface StorageItem {
-  key: string;
-  value: any;
-}
+import { StorageItem } from '@mytypes/storage';
 class Storage {
   private data: StorageItem[] = [];
 
