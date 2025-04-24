@@ -137,8 +137,9 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
         })
         .sort((a, b) => a.globalTimestamp - b.globalTimestamp);
 
-    if (pcmFiles.length === 0)
+    if (pcmFiles.length === 0) {
         throw new Error('No PCM files found to merge.');
+    }
 
     const startTime = pcmFiles[0].globalTimestamp;
 
@@ -228,7 +229,12 @@ export const transcribeAudio = async (meetingDir: string) => {
 }
 
 export const processRecording = async (meetingDir: string) => {
-    await mergePcmToMp3(meetingDir);
+    try {
+        await mergePcmToMp3(meetingDir);
+    } catch (error) {
+        logger.warn(`${error}`);
+        return;
+    }
 
     let transcription;
     if (process.env.OPENAI_KEY == undefined) {
