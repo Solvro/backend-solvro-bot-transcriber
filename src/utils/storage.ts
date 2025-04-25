@@ -1,4 +1,4 @@
-import { StorageItem } from '@mytypes/storage';
+import { StorageItem } from 'types/storage';
 class Storage {
   private data: StorageItem[] = [];
 

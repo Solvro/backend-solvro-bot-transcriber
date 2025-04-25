@@ -14,3 +14,10 @@ export interface UserStreams {
   pcmStream: PassThrough;
   fileStream: ReturnType<typeof createWriteStream>;
 }
+
+export interface UserChunk {
+  filepath: string;
+  userId: string;
+  globalTimestamp: number;  // ms
+  duration: number;         // ms
+};
