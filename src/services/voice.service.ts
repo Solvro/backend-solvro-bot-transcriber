@@ -5,11 +5,12 @@ import { join } from 'path';
 import { PassThrough } from 'stream';
 import { Decoder } from '@evan/opus';
 import ffmpeg from 'fluent-ffmpeg';
-import { readdirSync, readFileSync, statSync, writeFileSync, createReadStream } from 'fs';
+import { readdirSync, statSync, writeFileSync } from 'fs';
 import { storage } from "@utils/storage";
-import OpenAI from "openai";
 import { logger } from "@utils/logger";
-import { AudioSettings, UserStreams } from "types/voice";
+import { AudioSettings, UserChunk, UserStreams } from "types/voice";
+import { transcriber } from "@utils/transcriber";
+import { TranscriptionVerbose } from "types/transcriber";
 
 const AUDIO_SETTINGS: AudioSettings = {
     channels: 1,
@@ -104,10 +105,51 @@ export const recordAudio = async (connection: VoiceConnection, meetingDir: strin
     });
 };
 
-export const mergePcmToMp3 = async (meetingDir: string) => {
+export const processRecording = async (meetingDir: string) => {
+    try {
+        const chunks = await mergePcmToMp3(meetingDir);
+
+        // TODO: split audio file to smaller parts
+        const segments = await transcriber.toSegments(
+            join(meetingDir, "merged.mp3")
+        ) as TranscriptionVerbose;
+
+        let body;
+        if (segments) {
+            body = transcriber.assignUsersToSegments(
+                segments,
+                chunks
+            );
+
+            const transcriptionFilePath = join(meetingDir, "transcription.json");
+            writeFileSync(transcriptionFilePath, JSON.stringify(body, null, 2));
+        }
+
+        const response = await fetch(
+            `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}`, {
+            method: "PATCH",
+            body: JSON.stringify(segments ? body : { transcription: 'No segments found. Transcription skipped.' }),
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+
+        if (response.ok)
+            logger.info(`Recording updated successfully: ${response.statusText}`);
+        else
+            logger.warn(`Failed to update recording: ${response.statusText}`);
+    } catch (error) {
+        logger.error(`${error}`);
+    }
+
+    storage.remove("current_meeting_id");
+}
+
+
+const mergePcmToMp3 = async (meetingDir: string) => {
     logger.info("Loading PCM files for merging");
 
-    const pcmFiles = readdirSync(meetingDir)
+    const chunks: UserChunk[] = readdirSync(meetingDir)
         .filter(file => file.endsWith('.pcm'))
         .map(file => {
             const [timestamp, userId] = file.slice(0, -4).split('_');
@@ -115,54 +157,31 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
             const fileStats = statSync(filepath);
             const duration = Math.round(
                 1000 * fileStats.size / (AUDIO_SETTINGS.rate * 2)
-            ); // in ms
+            );
 
             return {
                 filepath,
                 userId,
                 globalTimestamp: parseInt(timestamp),
-                recordingTimestamp: 0,
                 duration,
             };
         })
+        .filter(file => file.duration > 800)
         .sort((a, b) => a.globalTimestamp - b.globalTimestamp);
-
-    if (pcmFiles.length === 0) {
+        
+    if (chunks.length === 0) {
         throw new Error('No PCM files found to merge.');
     }
 
-    const startTime = pcmFiles[0].globalTimestamp;
-
-    let currentEndTime = startTime + pcmFiles[0].duration;
-    const adjustedDelays: number[] = [0];
-    const SILENCE_GAP = 1000;
-
-    logger.info("Adjusting PCM delays for merging");
-
-    for (let i = 1; i < pcmFiles.length; i++) {
-        const track = pcmFiles[i];
-        const gapMs = track.globalTimestamp - currentEndTime;
-
-        let adjustedStart = track.globalTimestamp;
-        if (gapMs > 0)
-            adjustedStart = currentEndTime + SILENCE_GAP;
-
-        adjustedDelays.push(adjustedStart - startTime);
-        pcmFiles[i].recordingTimestamp = adjustedStart - startTime;
-        currentEndTime = Math.max(currentEndTime, adjustedStart + track.duration);
-    }
-
-    const metadataPath = join(meetingDir, "metadata.json");
-    writeFileSync(metadataPath, JSON.stringify(pcmFiles, null, 2));
-
+    const startTime = chunks[0].globalTimestamp;
     const outputPath = join(meetingDir, "merged.mp3");
 
     logger.info("Merging PCM files to MP3");
 
-    return await new Promise((resolve, reject) => {
+    await new Promise((resolve, reject) => {
         const ffmpegCommand = ffmpeg();
 
-        pcmFiles.forEach((pcm, index) => {
+        chunks.forEach((pcm, _) => {
             ffmpegCommand.input(pcm.filepath)
                 .inputOptions([
                     '-f s16le',
@@ -171,19 +190,23 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
                 ]);
         });
 
-        const delayFilters = pcmFiles.map((_, index) =>
-            `[${index}:a]adelay=${adjustedDelays[index]}|${adjustedDelays[index]}[a${index}]`
+        const delays = chunks.map((pcm) => {
+            return Math.max(0, pcm.globalTimestamp - startTime);
+        });
+
+        const delayFilters = chunks.map((_, index) =>
+            `[${index}:a]adelay=${delays[index]}|${delays[index]}[a${index}]`
         );
 
-        const amixFilter = `${pcmFiles.map((_, i) => `[a${i}]`).join('')}` +
-            `amix=inputs=${pcmFiles.length}:duration=longest[out]`;
+        const amixFilter = `${chunks.map((_, i) => `[a${i}]`).join('')}` +
+            `amix=inputs=${chunks.length}:duration=longest[out]`;
 
         ffmpegCommand
             .complexFilter([...delayFilters, amixFilter])
             .outputOptions([
                 '-map [out]',
                 '-c:a libmp3lame',
-                '-q:a 2'
+                `-b:a ${AUDIO_SETTINGS.bitrate}`,
             ])
             .output(outputPath)
             .on('end', resolve)
@@ -193,64 +216,8 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
             })
             .run();
     });
+
+    logger.info("PCM files merged successfully");
+
+    return chunks;
 };
-
-export const transcribeAudio = async (meetingDir: string) => {
-    const openai = new OpenAI({
-        apiKey: process.env.OPENAI_KEY,
-        organization: process.env.OPENAI_ORG,
-        project: process.env.OPENAI_PROJ,
-    });
-
-    logger.info("Transcription started");
-
-    // TODO: split merged.mp3 into 25MB chunks
-    const transcription = await openai.audio.transcriptions.create({
-        file: createReadStream(
-            join(meetingDir, "merged.mp3")
-        ),
-        model: "whisper-1",
-        language: "pl",
-    });
-
-    logger.info("Transcription finished");
-
-    return transcription.text;
-}
-
-export const processRecording = async (meetingDir: string) => {
-    try {
-        await mergePcmToMp3(meetingDir);
-    } catch (error) {
-        logger.warn(`${error}`);
-        return;
-    }
-
-    let transcription;
-    if (process.env.OPENAI_KEY == undefined) {
-        transcription = "Missing OpenAI key";
-        logger.warn("Missing OpenAI key, skipping transcription");
-    } else {
-        transcription = await transcribeAudio(meetingDir);
-    }
-
-    const transcriptionPath = join(meetingDir, "transcription.txt");
-    writeFileSync(transcriptionPath, transcription);
-
-    const metadataPath = join(meetingDir, "metadata.json");
-    const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
-
-    const response = await fetch(
-        `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-            transcription,
-            metadata,
-        }),
-        headers: {
-            "Content-Type": "application/json",
-        },
-    });
-
-    storage.remove("current_meeting_id");
-}
