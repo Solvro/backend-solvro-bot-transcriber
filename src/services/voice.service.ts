@@ -11,6 +11,7 @@ import { logger } from "@utils/logger";
 import { AudioSettings, UserChunk, UserStreams } from "types/voice";
 import { transcriber } from "@utils/transcriber";
 import { TranscriptionVerbose } from "types/transcriber";
+import { uploadFile } from "./minio.service";
 
 const AUDIO_SETTINGS: AudioSettings = {
     channels: 1,
@@ -108,6 +109,10 @@ export const recordAudio = async (connection: VoiceConnection, meetingDir: strin
 export const processRecording = async (meetingDir: string) => {
     try {
         const chunks = await mergePcmToMp3(meetingDir);
+
+        // Upload file to MinIO storage
+        // TODO: set bucket name to meeting id?
+        await uploadFile(join(meetingDir, "merged.mp3"), "meetings", "merged.mp3");
 
         // TODO: split audio file to smaller parts
         const segments = await transcriber.toSegments(
