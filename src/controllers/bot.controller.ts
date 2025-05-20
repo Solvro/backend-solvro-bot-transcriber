@@ -3,17 +3,17 @@ import {
     connectToVoiceChannel,
     disconnectFromVoice,
     recordAudio,
-    processRecording
+    processRecording,
 } from "@services/voice.service";
 import { join } from "path";
 import { storage } from "@utils/storage";
 
 export const start = async (req: Request, res: Response) => {
     const channelId = req.body?.channelId;
-    // if (!channelId) {
-    //     res.status(400).json({ error: "channelId is required" });
-    //     return;
-    // }
+    if (!channelId) {
+        res.status(400).json({ error: "channelId is required" });
+        return;
+    }
 
     const meetingId = req.body?.meetingId as string;
     if (!meetingId) {
