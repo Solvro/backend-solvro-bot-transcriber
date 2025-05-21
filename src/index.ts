@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import botRoutes from "@routes/bot.routes";
 import DiscordClient from "@services/client.service";
 import { logger } from "@utils/logger";
+import audioRoutes from "@routes/audio.routes";
 dotenv.config();
 
 const app = express();
@@ -15,6 +16,7 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 app.use("/", botRoutes);
+app.use("/", audioRoutes);
 
 // init discord client;
 DiscordClient;

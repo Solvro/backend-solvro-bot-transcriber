@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express from "express";
 import { start, stop } from "@controllers/bot.controller";
 
 const botRoutes = express.Router();
