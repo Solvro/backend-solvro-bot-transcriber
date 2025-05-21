@@ -11,6 +11,7 @@ import {
     createWriteStream,
     closeSync,
     openSync,
+    unlinkSync,
 } from "fs";
 import { join } from "path";
 import { PassThrough } from "stream";
@@ -30,6 +31,8 @@ const AUDIO_SETTINGS: AudioSettings = {
     frameSize: 960,
     bitrate: "64k",
 };
+
+const BATCH_SIZE = 50;
 
 export const connectToVoiceChannel = async (
     guildId: string,
@@ -199,8 +202,11 @@ export const processRecording = async (meetingDir: string) => {
     storage.remove("current_meeting_id");
 };
 
-const mergePcmToMp3 = async (meetingDir: string) => {
+export const mergePcmToMp3 = async (meetingDir: string) => {
     logger.info("Loading PCM files for merging");
+
+    logger.debug(`meetingDir: ${typeof meetingDir}, constructor: ${meetingDir?.constructor?.name}`);
+
 
     const chunks: UserChunk[] = readdirSync(meetingDir)
         .filter((file) => file.endsWith(".pcm"))
@@ -226,59 +232,114 @@ const mergePcmToMp3 = async (meetingDir: string) => {
 
     if (chunks.length === 0) {
         logger.info("No PCM files found to merge.");
-
         closeSync(openSync(outputPath, "w"));
         return [];
-        // throw new Error("No PCM files found to merge.");
     }
 
+    logger.info(
+        `Found ${chunks.length} PCM files, starting batch processing...`
+    );
+
+    const intermediateFiles: string[] = [];
     const startTime = chunks[0].globalTimestamp;
 
-    logger.info("Merging PCM files to MP3");
+    // Step 1: Process in batches
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+        const batch = chunks.slice(i, i + BATCH_SIZE);
+        const batchOutput = join(meetingDir, `batch_${i / BATCH_SIZE}.wav`);
+        intermediateFiles.push(batchOutput);
 
-    await new Promise((resolve, reject) => {
-        const ffmpegCommand = ffmpeg();
-
-        chunks.forEach((pcm, _) => {
-            ffmpegCommand
-                .input(pcm.filepath)
-                .inputOptions([
-                    "-f s16le",
-                    `-ar ${AUDIO_SETTINGS.rate}`,
-                    `-ac ${AUDIO_SETTINGS.channels}`,
-                ]);
-        });
-
-        const delays = chunks.map((pcm) => {
-            return Math.max(0, pcm.globalTimestamp - startTime);
-        });
-
-        const delayFilters = chunks.map(
-            (_, index) =>
-                `[${index}:a]adelay=${delays[index]}|${delays[index]}[a${index}]`
+        logger.info(
+            `Processing batch ${i / BATCH_SIZE + 1}/${Math.ceil(
+                chunks.length / BATCH_SIZE
+            )}...`
         );
 
-        const amixFilter =
-            `${chunks.map((_, i) => `[a${i}]`).join("")}` +
-            `amix=inputs=${chunks.length}:duration=longest[out]`;
+        await new Promise<void>((resolve, reject) => {
+            const command = ffmpeg();
 
-        ffmpegCommand
-            .complexFilter([...delayFilters, amixFilter])
+            batch.forEach((pcm) => {
+                command
+                    .input(pcm.filepath)
+                    .inputOptions([
+                        "-f s16le",
+                        `-ar ${AUDIO_SETTINGS.rate}`,
+                        `-ac ${AUDIO_SETTINGS.channels}`,
+                    ]);
+            });
+
+            const delays = batch.map((pcm) =>
+                Math.max(0, pcm.globalTimestamp - startTime)
+            );
+
+            const delayFilters = batch.map(
+                (_, idx) =>
+                    `[${idx}:a]adelay=${delays[idx]}|${delays[idx]}[a${idx}]`
+            );
+
+            const amix =
+                batch.map((_, i) => `[a${i}]`).join("") +
+                `amix=inputs=${batch.length}:duration=longest[out]`;
+
+            command
+                .complexFilter([...delayFilters, amix])
+                .outputOptions(["-map [out]"])
+                .output(batchOutput)
+                .on("end", () => {
+                    logger.info(`Finished batch ${i / BATCH_SIZE + 1}`);
+                    resolve();
+                })
+                .on("error", (err) => {
+                    logger.error(
+                        `FFmpeg error in batch ${i / BATCH_SIZE}: ${err}`
+                    );
+                    reject(err);
+                })
+                .run();
+        });
+    }
+
+    // Step 2: Merge all batch outputs into final MP3
+    logger.info("Merging intermediate files into final output...");
+
+    await new Promise<void>((resolve, reject) => {
+        const command = ffmpeg();
+
+        intermediateFiles.forEach((file) => command.input(file));
+
+        const amix =
+            intermediateFiles.map((_, i) => `[${i}:a]`).join("") +
+            `amix=inputs=${intermediateFiles.length}:duration=longest[out]`;
+
+        command
+            .complexFilter([amix])
             .outputOptions([
                 "-map [out]",
                 "-c:a libmp3lame",
                 `-b:a ${AUDIO_SETTINGS.bitrate}`,
             ])
             .output(outputPath)
-            .on("end", resolve)
+            .on("end", () => {
+                logger.info("Final MP3 merged successfully.");
+                resolve();
+            })
             .on("error", (err) => {
-                logger.error(`FFmpeg error: ${err}`);
+                logger.error(`FFmpeg final merge error: ${err}`);
                 reject(err);
             })
             .run();
     });
 
-    logger.info("PCM files merged successfully");
+    // Step 3: Cleanup intermediate files
+    logger.info("Cleaning up intermediate files...");
+    intermediateFiles.forEach((file) => {
+        try {
+            unlinkSync(file);
+        } catch (err) {
+            logger.warn(`Failed to delete ${file}: ${err}`);
+        }
+    });
 
+    logger.info("PCM files merged successfully.");
     return chunks;
 };
