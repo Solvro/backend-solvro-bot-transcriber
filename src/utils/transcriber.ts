@@ -206,7 +206,7 @@ class Transcriber {
             ];
 
             const response = await this.client?.chat.completions.create({
-                model: "gpt-4o",
+                model: MODEL,
                 messages: messages,
             });
 
