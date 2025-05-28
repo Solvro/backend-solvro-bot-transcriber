@@ -22,7 +22,7 @@ const SYSTEM_CONTENT = [
     "Nie pomijaj ważnych informacji, ale staraj się unikać nadmiernych szczegółów i powtórzeń. ",
     "Zachowaj profesjonalny i przejrzysty styl. ",
     "Nie halucynuj, nie przeklinaj, nie używaj wulgaryzmów. ",
-    "Na spotkaniach omawiane będa osiągnięcia z poprzedniego tygodnia zespołów: ",
+    "Na spotkaniach omawiane będą osiągnięcia z poprzedniego tygodnia zespołów: ",
     "Aplikacja ToPWR, Planer, Cube3D/Led Cube, Aplikacja i strona Juwenalia, Strona katedry W4, Eventownik, Promochator. "
 ]
 
