@@ -171,7 +171,7 @@ class Transcriber {
         throw new Error("Not implemented");
     }
 
-    async getSummary(transcriptionPath: string) {
+    async summarize(transcriptionPath: string) {
         if (!this.authorized) {
             logger.warn(
                 "Missing OpenAI credentials. Summarization will be skipped."

@@ -195,6 +195,27 @@ export const processRecording = async (meetingDir: string) => {
                 `Recording updated successfully: ${response.statusText}`
             );
         else logger.warn(`Failed to update recording: ${response.statusText}`);
+
+        logger.info("Starting the summary generation");
+
+        const transcriptionFilePath = join(
+                meetingDir,
+                "transcription.json"
+            );
+
+        const summaryText = await transcriber.summarize(transcriptionFilePath);
+        if (summaryText) {
+            const summaryPath = join(meetingDir, "summary.md");
+
+            writeFileSync(
+                summaryPath,
+                summaryText
+            );
+
+            logger.info(`Summary generated successfully (${summaryPath})`);
+        } else {
+            logger.warn("Summary generation failed or returned empty.");
+        }
     } catch (error) {
         logger.error(`${error}`);
     }
@@ -289,7 +310,7 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
                     logger.info(`Finished batch ${i / BATCH_SIZE + 1}`);
                     resolve();
                 })
-                .on("error", (err) => {
+                .on("error", (err: any) => {
                     logger.error(
                         `FFmpeg error in batch ${i / BATCH_SIZE}: ${err}`
                     );
@@ -323,7 +344,7 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
                 logger.info("Final MP3 merged successfully.");
                 resolve();
             })
-            .on("error", (err) => {
+            .on("error", (err: any) => {
                 logger.error(`FFmpeg final merge error: ${err}`);
                 reject(err);
             })
