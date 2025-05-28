@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { processRecording } from "@services/voice.service";
 import { join } from "path";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 
 export const processRecordings = async (req: Request, res: Response) => {
     const meetingId = req.body?.meetingId;
@@ -62,4 +62,28 @@ export const getTranscription = async (req: Request, res: Response) => {
     }
 
     res.download(recordingPath);
+};
+
+export const getSummary = async (req: Request, res: Response) => {
+    const meetingId = req.params?.meetingId;
+
+    if (!meetingId || typeof meetingId !== "string") {
+        res.status(400).json({ error: "meetingId is required" });
+        return;
+    }
+
+    const summaryPath = join(
+        process.env.RECORDINGS_PATH ?? "../../recordings",
+        meetingId,
+        "summary.md"
+    );
+
+    if (!existsSync(summaryPath)) {
+        res.status(404).json({ error: "Not found" });
+        return;
+    }
+    
+    const summaryContent = readFileSync(summaryPath, 'utf-8');
+    res.json({ summary: summaryContent });
+    // res.download(summaryPath);
 };
