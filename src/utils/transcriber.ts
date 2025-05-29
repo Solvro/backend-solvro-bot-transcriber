@@ -1,9 +1,30 @@
 import OpenAI from "openai";
 import { logger } from "@utils/logger";
-import { createReadStream, existsSync } from "fs";
+import { createReadStream, existsSync, readFileSync } from "fs";
 import IntervalTree from "@flatten-js/interval-tree";
 import { UserChunk } from "types/voice";
 import { TranscriptionVerbose, SegWithUserId } from "types/transcriber";
+
+const MODEL = "gpt-4o";
+const USER_CONTENT = "Podsumuj tę transkrypcję:\n"
+const SYSTEM_CONTENT = [
+    "Jesteś profesjonalnym asystentem, który dokładnie podsumowuje transkrypcję cotygodniowego spotkania Solvro Weekly koła naukowego Solvro. ",
+    "Twoim celem jest stworzenie szczegółowego, ale czytelnego podsumowania, które zawiera wszystkie kluczowe informacje. ",
+    "Podsumowanie powinno zawierać:\n",
+    "- 📌 **Główne tematy spotkania** – co zostało omówione?\n",
+    "- ✅ **Podjęte decyzje** – jakie wnioski i decyzje zapadły?\n",
+    "- 📝 **Zadania do wykonania** – kto jest odpowiedzialny za konkretne działania?\n",
+    "- ⏭️ **Plany na przyszłość** – co zaplanowano na kolejne spotkania lub działania?\n",
+    "- 🔹 **Dodatkowe istotne informacje** – np. problemy, wyzwania, sugestie.\n\n",
+    "Podsumowanie powinno być dobrze zorganizowane, logicznie uporządkowane i zawierać wszystkie istotne szczegóły. ",
+    "Podsumowanie powinno byc w formacie .md (Markdown) dostosowanym do możliwości Discord. ",
+    "Nie zamykaj podsumowania w formacie .md (Markdown) w Discordowy blok kodu, tylko wyślij czysty Markdown który można wkleić w wiadomość Discord. ",
+    "Nie pomijaj ważnych informacji, ale staraj się unikać nadmiernych szczegółów i powtórzeń. ",
+    "Zachowaj profesjonalny i przejrzysty styl. ",
+    "Nie halucynuj, nie przeklinaj, nie używaj wulgaryzmów. ",
+    "Na spotkaniach omawiane będą osiągnięcia z poprzedniego tygodnia zespołów: ",
+    "Aplikacja ToPWR, Planer, Cube3D/Led Cube, Aplikacja i strona Juwenalia, Strona katedry W4, Eventownik, Promochator. "
+]
 
 class Transcriber {
     private authorized: boolean = true;
@@ -148,6 +169,52 @@ class Transcriber {
     // TODO: implement after cutting the audio file to smaller parts
     mergeMultipleTranscriptions(transcriptions: TranscriptionVerbose[]) {
         throw new Error("Not implemented");
+    }
+
+    async summarize(transcriptionPath: string) {
+        if (!this.authorized) {
+            logger.warn(
+                "Missing OpenAI credentials. Summarization will be skipped."
+            );
+            return null;
+        }
+
+        if (!existsSync(transcriptionPath)) {
+            logger.warn(
+                `Transcription file ${transcriptionPath} does not exist. Summarization will be skipped.`
+            );
+            return null;
+        }
+        
+        try {
+            const transcriptionData: TranscriptionVerbose = JSON.parse(
+                readFileSync(transcriptionPath, 'utf-8')
+            );
+
+            const transcription = transcriptionData.text;
+
+            if (!transcription || transcription.length === 0) {
+                logger.warn(
+                    `Transcription file ${transcriptionPath} is empty. Summarization will be skipped.`
+                );
+                return null;
+            }
+
+            const messages: OpenAI.ChatCompletionMessageParam[] = [
+                { role: 'system', content: SYSTEM_CONTENT.join('') },
+                { role: 'user', content: `${USER_CONTENT}${transcription}` },
+            ];
+
+            const response = await this.client?.chat.completions.create({
+                model: MODEL,
+                messages: messages,
+            });
+
+            return response ? response.choices[0].message.content : null;
+        } catch(e) {
+            logger.error(`Error during summarization: ${e}`);
+            return null;
+        }
     }
 }
 
