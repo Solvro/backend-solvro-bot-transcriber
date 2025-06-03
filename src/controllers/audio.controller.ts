@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { processRecording } from "@services/voice.service";
 import { join } from "path";
 import { existsSync, readFileSync } from "fs";
+import { generateSummaryFromTranscription, processRecording } from "@services/transcription.service";
 
 export const processRecordings = async (req: Request, res: Response) => {
     const meetingId = req.body?.meetingId;
@@ -16,6 +16,23 @@ export const processRecordings = async (req: Request, res: Response) => {
     );
 
     processRecording(recordingPath);
+
+    res.json({ message: "ok" });
+};
+
+export const generateSummary = async (req: Request, res: Response) => {
+    const meetingId = req.body?.meetingId;
+    if (!meetingId || typeof meetingId !== "string") {
+        res.status(400).json({ error: "meetingId is required" });
+        return;
+    }
+
+    const recordingPath = join(
+        process.env.RECORDINGS_PATH ?? "../../recordings",
+        meetingId
+    );
+
+    generateSummaryFromTranscription(recordingPath);
 
     res.json({ message: "ok" });
 };

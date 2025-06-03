@@ -3,10 +3,10 @@ import {
     connectToVoiceChannel,
     disconnectFromVoice,
     recordAudio,
-    processRecording,
 } from "@services/voice.service";
 import { join } from "path";
 import { storage } from "@utils/storage";
+import { processRecording } from "@services/transcription.service";
 
 export const start = async (req: Request, res: Response) => {
     const channelId = req.body?.channelId;
