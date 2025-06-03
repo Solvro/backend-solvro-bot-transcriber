@@ -27,11 +27,19 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM base
+FROM node:slim AS production
+
+# Install ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV PORT=3000
+
 WORKDIR /app
+
 COPY --from=production-deps /app/node_modules /app/node_modules
 COPY --from=build /app/dist /app
+
 EXPOSE 3000
 CMD ["node", "index.js"]
