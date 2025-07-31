@@ -21,7 +21,7 @@ app.use("/", audioRoutes);
 // init discord client;
 DiscordClient;
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
+const port = Number(process.env.PORT) || 3000;
+app.listen(port, '0.0.0.0', () => {
     logger.info(`Server running at http://localhost:${port}`);
 });

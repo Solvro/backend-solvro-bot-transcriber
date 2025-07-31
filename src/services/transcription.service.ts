@@ -7,6 +7,7 @@ import { logger } from "@utils/logger";
 import { AudioSettings, UserChunk } from "types/voice";
 import { transcriber } from "@utils/transcriber";
 import { TranscriptionVerbose } from "types/transcriber";
+import fetch from "node-fetch";
 
 const AUDIO_SETTINGS: AudioSettings = {
     channels: 1,
@@ -56,9 +57,8 @@ export const processRecording = async (meetingDir: string) => {
         );
 
         await generateSummaryFromTranscription(meetingDir);
-
     } catch (error) {
-        logger.error(`${error}`);
+        logger.error(`Error in processRecording: ${error}`);
     }
 
     storage.remove("current_meeting_id");
@@ -82,22 +82,33 @@ export const generateSummaryFromTranscription = async (meetingDir: string) => {
 };
 
 const sendTranscriptionPartsToCore = async (content: any) => {
+    const requestBody = {
+        text: content.text || "Transcription",
+        task: "transcription",
+        language: content.language || "pl",
+        duration: content.duration || 0,
+        segments: content.segments || [],
+    };
+
     const response = await fetch(
-        `${process.env.CORE_URL}/recordings/${storage.get(
-            "current_meeting_id"
-        )}`,
+        `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}`,
         {
             method: "PATCH",
-            body: JSON.stringify(content),
+            body: JSON.stringify(requestBody),
             headers: {
                 "Content-Type": "application/json",
             },
         }
     );
 
-    if (response.ok)
-        logger.info(`Recording updated successfully: ${response.statusText}`);
-    else logger.warn(`Failed to update recording: ${response.statusText}`);
+    if (response.ok) {
+        logger.info(`Recording updated successfully`);
+    } else {
+        const errorText = await response.text();
+        logger.warn(
+            `Failed to update recording: ${response.statusText}, Details: ${errorText}`
+        );
+    }
 };
 
 export const mergePcmToMp3 = async (meetingDir: string) => {
