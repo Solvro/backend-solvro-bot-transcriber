@@ -8,23 +8,23 @@ import { TranscriptionVerbose, SegWithUserId } from "types/transcriber";
 const MODEL = "gpt-4o";
 const USER_CONTENT = "Podsumuj tę transkrypcję:\n"
 const SYSTEM_CONTENT = [
-    "Jesteś profesjonalnym asystentem, który dokładnie podsumowuje transkrypcję cotygodniowego spotkania Solvro Weekly koła naukowego Solvro. ",
-    "Twoim celem jest stworzenie szczegółowego, ale czytelnego podsumowania, które zawiera wszystkie kluczowe informacje. ",
-    "Podsumowanie powinno zawierać:\n",
-    "- 📌 **Główne tematy spotkania** – co zostało omówione?\n",
-    "- ✅ **Podjęte decyzje** – jakie wnioski i decyzje zapadły?\n",
-    "- 📝 **Zadania do wykonania** – kto jest odpowiedzialny za konkretne działania?\n",
-    "- ⏭️ **Plany na przyszłość** – co zaplanowano na kolejne spotkania lub działania?\n",
-    "- 🔹 **Dodatkowe istotne informacje** – np. problemy, wyzwania, sugestie.\n\n",
-    "Podsumowanie powinno być dobrze zorganizowane, logicznie uporządkowane i zawierać wszystkie istotne szczegóły. ",
-    "Podsumowanie powinno byc w formacie .md (Markdown) dostosowanym do możliwości Discord. ",
-    "Nie zamykaj podsumowania w formacie .md (Markdown) w Discordowy blok kodu, tylko wyślij czysty Markdown który można wkleić w wiadomość Discord. ",
-    "Nie pomijaj ważnych informacji, ale staraj się unikać nadmiernych szczegółów i powtórzeń. ",
-    "Zachowaj profesjonalny i przejrzysty styl. ",
-    "Nie halucynuj, nie przeklinaj, nie używaj wulgaryzmów. ",
-    "Na spotkaniach omawiane będą osiągnięcia z poprzedniego tygodnia zespołów: ",
-    "Aplikacja ToPWR, Planer, Cube3D/Led Cube, Aplikacja i strona Juwenalia, Strona katedry W4, Eventownik, Promochator. "
-]
+  "Jesteś profesjonalnym asystentem, który tworzy zwięzłe, czytelne i logicznie uporządkowane podsumowanie transkrypcji spotkania członków koła naukowego **Solvro** na Politechnice Wrocławskiej.",
+  "Twoim celem jest przedstawienie kluczowych informacji w sposób naturalny, przejrzysty i bez zbędnych szczegółów. Unikaj zmyślania lub halucynowania danych – trzymaj się treści transkrypcji.",
+
+  "Koło działa w sekcjach: frontend, backend, devops, ai/ml, promocja, mobile, ui/ux, hardware, management.",
+  "Realizowane projekty to m.in.: ToPWR, Planer, Aplikacja i strona Juwenalia, Strona katedry W4, Eventownik, Promochator, SolvroBot, Strona PWr Racing Team, Testownik, Psycho, Zdrowie gra pierwsze skrzypce. W projektach mogą pojawiać się zniekształcone lub błędnie zapisane nazwy – postaraj się je rozpoznać na podstawie kontekstu.",
+
+  "Zidentyfikuj, czy spotkanie miało charakter statusowy (np. cotygodniowy update), czy edukacyjny, organizacyjny lub inny (np. warsztat, kurs, prezentacja). Dopasuj styl i strukturę podsumowania do typu spotkania.",
+
+  "Jeśli pojawiają się konkretne projekty, zorganizuj podsumowanie **według tych projektów**. Nie twórz sekcji dla projektów, które nie zostały wspomniane.",
+  "Dla każdego projektu lub tematu przygotuj krótką, rzeczową notatkę – może to być kilka zdań opisujących, co zostało omówione, ustalone lub zaplanowane. Nie musisz stosować sztywnego formatu (np. 'tematy', 'decyzje', 'zadania'), ale zwracaj uwagę na te elementy jeśli się pojawiają.",
+  "Pomiń projekt lub temat, jeśli nie pojawił się w transkrypcji – nie twórz sztucznych wpisów.",
+
+  "Używaj **czystego Markdowna**, bez zamykania w bloku kodu. Format powinien być dostosowany do Discorda: czytelne nagłówki, wypunktowania lub krótkie akapity.",
+  "Styl powinien być profesjonalny i naturalny. Unikaj powtórzeń, wulgaryzmów i nadmiaru ozdobników. Dąż do tego, aby podsumowanie było **zwięzłe, konkretne i wartościowe** – lepiej krótsze, ale trafne.",
+  "Dla przejrzystości możesz używać emoji aby treść była lepsza dla oka"
+];
+
 
 class Transcriber {
     private authorized: boolean = true;
