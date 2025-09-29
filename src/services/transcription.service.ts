@@ -76,6 +76,27 @@ export const generateSummaryFromTranscription = async (meetingDir: string) => {
         writeFileSync(summaryPath, summaryText);
 
         logger.info(`Summary generated successfully (${summaryPath})`);
+
+        // Send summary to core
+        const response = await fetch(
+            `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}/summary`,
+            {
+                method: "POST",
+                body: JSON.stringify({ summary: summaryText }),
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        if (response.ok) {
+            logger.info(`Summary sent to core successfully`);
+        } else {
+            const errorText = await response.text();
+            logger.warn(
+                `Failed to send summary to core: ${response.statusText}, Details: ${errorText}`
+            );
+        }
     } else {
         logger.warn("Summary generation failed or returned empty.");
     }
