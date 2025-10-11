@@ -82,14 +82,22 @@ export const recordAudio = async (
         const fileStream = createWriteStream(filepath);
 
         audioStream.on("data", (chunk: Buffer) => {
-            const decoded = decoder.decode(chunk);
-            pcmStream.write(decoded);
+            try {
+                const decoded = decoder.decode(chunk);
+                pcmStream.write(decoded);
+            } catch (err) {
+                logger.error(`Error decoding PCM stream for user ${userId}: ${err}`);
+            }
         });
 
         pcmStream.pipe(fileStream);
 
         audioStream.on("end", () => {
-            pcmStream.end();
+            try {
+                pcmStream.end();
+            } catch (err) {
+                logger.error(`Error ending PCM stream for user ${userId}: ${err}`);
+            }
         });
 
         streams.set(userId, {
