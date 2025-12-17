@@ -40,12 +40,14 @@ export const start = async (req: Request, res: Response) => {
 export const stop = async (req: Request, res: Response) => {
     await disconnectFromVoice(process.env.GUILD_ID ?? "");
 
+    const meetingId = storage.get("current_meeting_id") as string;
+
     const recordingPath = join(
         process.env.RECORDINGS_PATH ?? "../../recordings",
-        storage.get("current_meeting_id") as string
+        meetingId
     );
 
-    processRecording(recordingPath);
+    processRecording(recordingPath, meetingId);
 
     res.json({ message: "ok" });
 };

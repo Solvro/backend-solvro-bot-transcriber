@@ -15,7 +15,7 @@ export const processRecordings = async (req: Request, res: Response) => {
         meetingId
     );
 
-    processRecording(recordingPath);
+    processRecording(recordingPath, meetingId);
 
     res.json({ message: "ok" });
 };

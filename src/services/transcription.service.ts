@@ -18,13 +18,13 @@ const AUDIO_SETTINGS: AudioSettings = {
 
 const BATCH_SIZE = 50;
 
-export const processRecording = async (meetingDir: string) => {
+export const processRecording = async (meetingDir: string, meetingId: string) => {
     try {
         const chunks = await mergePcmToMp3(meetingDir);
 
         // Empty recording, skip transcription and notify core
         if (chunks.length == 0) {
-            await sendTranscriptionPartsToCore({
+            await sendTranscriptionPartsToCore(meetingId,{
                 text: "No segments found. Transcription skipped.",
             });
             return;
@@ -51,6 +51,7 @@ export const processRecording = async (meetingDir: string) => {
         }
 
         await sendTranscriptionPartsToCore(
+            meetingId,
             segments
                 ? body
                 : { text: "No segments found. Transcription skipped." }
@@ -81,7 +82,7 @@ export const generateSummaryFromTranscription = async (meetingDir: string) => {
     }
 };
 
-const sendTranscriptionPartsToCore = async (content: any) => {
+const sendTranscriptionPartsToCore = async (meetingId: string, content: any) => {
     const requestBody = {
         text: content.text || "Transcription",
         task: "transcription",
@@ -91,7 +92,7 @@ const sendTranscriptionPartsToCore = async (content: any) => {
     };
 
     const response = await fetch(
-        `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}`,
+        `${process.env.CORE_URL}/recordings/${meetingId}`,
         {
             method: "PATCH",
             body: JSON.stringify(requestBody),
@@ -115,8 +116,7 @@ export const mergePcmToMp3 = async (meetingDir: string) => {
     logger.info("Loading PCM files for merging");
 
     logger.debug(
-        `meetingDir: ${typeof meetingDir}, constructor: ${
-            meetingDir?.constructor?.name
+        `meetingDir: ${typeof meetingDir}, constructor: ${meetingDir?.constructor?.name
         }`
     );
 
