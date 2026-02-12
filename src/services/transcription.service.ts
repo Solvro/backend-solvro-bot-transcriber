@@ -35,9 +35,11 @@ export const processRecording = async (meetingDir: string, meetingId: string) =>
         // await uploadFile(join(meetingDir, "merged.mp3"), "meetings", "merged.mp3");
 
         // TODO: split audio file to smaller parts
+        logger.info(`Starting transcription for meeting ${meetingId}...`);
         const segments = (await transcriber.toSegments(
             join(meetingDir, "merged.mp3")
         )) as TranscriptionVerbose;
+        logger.info(`Transcription completed for meeting ${meetingId}.`);
 
         let body;
         if (segments) {
@@ -79,24 +81,28 @@ export const generateSummaryFromTranscription = async (meetingDir: string) => {
         logger.info(`Summary generated successfully (${summaryPath})`);
 
         // Send summary to core
-        const response = await fetch(
-            `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}/summary`,
-            {
-                method: "POST",
-                body: JSON.stringify({ summary: summaryText }),
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            }
-        );
-
-        if (response.ok) {
-            logger.info(`Summary sent to core successfully`);
-        } else {
-            const errorText = await response.text();
-            logger.warn(
-                `Failed to send summary to core: ${response.statusText}, Details: ${errorText}`
+        try {
+            const response = await fetch(
+                `${process.env.CORE_URL}/recordings/${storage.get("current_meeting_id")}/summary`,
+                {
+                    method: "POST",
+                    body: JSON.stringify({ summary: summaryText }),
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                }
             );
+
+            if (response.ok) {
+                logger.info(`Summary sent to core successfully`);
+            } else {
+                const errorText = await response.text();
+                logger.warn(
+                    `Failed to send summary to core: ${response.statusText}, Details: ${errorText}`
+                );
+            }
+        } catch (error) {
+            logger.error(`Error sending summary to Core: ${error}`);
         }
     } else {
         logger.warn("Summary generation failed or returned empty.");
@@ -112,24 +118,29 @@ const sendTranscriptionPartsToCore = async (meetingId: string, content: any) => 
         segments: content.segments || [],
     };
 
-    const response = await fetch(
-        `${process.env.CORE_URL}/recordings/${meetingId}`,
-        {
-            method: "PATCH",
-            body: JSON.stringify(requestBody),
-            headers: {
-                "Content-Type": "application/json",
-            },
-        }
-    );
-
-    if (response.ok) {
-        logger.info(`Recording updated successfully`);
-    } else {
-        const errorText = await response.text();
-        logger.warn(
-            `Failed to update recording: ${response.statusText}, Details: ${errorText}`
+    try {
+        const response = await fetch(
+            `${process.env.CORE_URL}/recordings/${meetingId}`,
+            {
+                method: "PATCH",
+                body: JSON.stringify(requestBody),
+                headers: {
+                    "Content-Type": "application/json",
+                },
+            }
         );
+
+        if (response.ok) {
+            logger.info(`Recording updated successfully`);
+        } else {
+            const errorText = await response.text();
+            logger.warn(
+                `Failed to update recording: ${response.statusText}, Details: ${errorText}`
+            );
+        }
+    } catch (error) {
+        logger.error(`Error sending transcription parts to Core: ${error}`);
+        throw error;
     }
 };
 

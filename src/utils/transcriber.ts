@@ -1,6 +1,6 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { logger } from "@utils/logger";
-import { createReadStream, existsSync, readFileSync } from "fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "fs";
 import IntervalTree from "@flatten-js/interval-tree";
 import { UserChunk } from "types/voice";
 import { TranscriptionVerbose, SegWithUserId } from "types/transcriber";
@@ -47,6 +47,8 @@ class Transcriber {
             apiKey: process.env.OPENAI_KEY,
             organization: process.env.OPENAI_ORG,
             project: process.env.OPENAI_PROJ,
+            maxRetries: 3,
+            timeout: 60 * 1000 * 5, // 5 min
         });
     }
 
@@ -65,18 +67,58 @@ class Transcriber {
             return undefined;
         }
 
-        const res = await this.client?.audio.transcriptions.create({
-            file: createReadStream(audioFile),
-            model: "whisper-1",
-            language: "pl",
-            response_format: "verbose_json",
-            timestamp_granularities: ["segment"],
+        const MAX_RETRIES = 3;
+        let attempt = 0;
 
-            //? maybe list of open projects will be available in some db
-            // prompt: "ToPWR, Solvro Bot, Planer, ..."
-        });
+        while (attempt < MAX_RETRIES) {
+            try {
+                const stats = statSync(audioFile);
+                if (attempt === 0) {
+                    logger.info(`Uploading file ${audioFile} (${(stats.size / 1024 / 1024).toFixed(2)} MB) to OpenAI...`);
+                } else {
+                    logger.info(`[Retry ${attempt}/${MAX_RETRIES - 1}] Uploading file ${audioFile}...`);
+                }
 
-        return res;
+                // Read file to buffer to avoid stream resets
+                const fileBuffer = readFileSync(audioFile);
+                const openaiFile = await toFile(fileBuffer, audioFile.split(/[\\/]/).pop() || 'audio.mp3');
+
+                const res = await this.client?.audio.transcriptions.create({
+                    file: openaiFile,
+                    model: "whisper-1",
+                    language: "pl",
+                    response_format: "verbose_json",
+                    timestamp_granularities: ["segment"],
+
+                    //? maybe list of open projects will be available in some db
+                    // prompt: "ToPWR, Solvro Bot, Planer, ..."
+                });
+
+                return res;
+            } catch (error: any) {
+                const isConnectionError = 
+                    error?.message?.includes('Connection error') || 
+                    error?.code === 'ECONNRESET' ||
+                    error?.cause?.code === 'ECONNRESET';
+                
+                // Retry specific connection errors but also general errors if likely transient
+                if ((isConnectionError || attempt < MAX_RETRIES - 1) && attempt < MAX_RETRIES - 1) {
+                    attempt++;
+                    const delay = 2000 * attempt;
+                    logger.warn(`Transcription error during attempt ${attempt}: ${error.message}. Retrying in ${delay}ms...`);
+                    if (error.cause) logger.warn(`Cause: ${error.cause}`);
+                    
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+
+                logger.error(`OpenAI Transcription error (Attempt ${attempt + 1}): ${error}`);
+                if (error.cause) logger.error(`Cause: ${error.cause}`);
+                if (error.code) logger.error(`Error Code: ${error.code}`);
+                if (error.type) logger.error(`Error Type: ${error.type}`);
+                throw error;
+            }
+        }
     }
 
     assignUsersToSegments(
